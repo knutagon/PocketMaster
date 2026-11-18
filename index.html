@@ -1,0 +1,1356 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PocketMaster Studio — Mobile Web Audio Mastering</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            obsidian: '#0a0b0e',
+            rack: '#12141a',
+            module: '#181b23',
+            border: '#262b38',
+            cyanled: '#00e5ff',
+            amberled: '#ffab00',
+            emeraldled: '#00e676',
+            crimsonled: '#ff1744',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      background-color: #0a0b0e;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+    /* Custom Mobile Touch Range Sliders */
+    input[type="range"].studio-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 32px;
+      background: transparent;
+      cursor: pointer;
+      touch-action: pan-y;
+    }
+    input[type="range"].studio-slider::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: #232836;
+      border: 1px solid #2e3547;
+    }
+    input[type="range"].studio-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #f8fafc, #cbd5e1);
+      border: 2px solid #00e5ff;
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.45), 0 2px 4px rgba(0,0,0,0.6);
+      margin-top: -9px;
+      transition: transform 0.08s ease;
+    }
+    input[type="range"].studio-slider:active::-webkit-slider-thumb {
+      transform: scale(1.18);
+      background: #00e5ff;
+    }
+    input[type="range"].amber-slider::-webkit-slider-thumb {
+      border-color: #ffab00;
+      box-shadow: 0 0 10px rgba(255, 171, 0, 0.45), 0 2px 4px rgba(0,0,0,0.6);
+    }
+    input[type="range"].amber-slider:active::-webkit-slider-thumb {
+      background: #ffab00;
+    }
+    input[type="range"].emerald-slider::-webkit-slider-thumb {
+      border-color: #00e676;
+      box-shadow: 0 0 10px rgba(0, 230, 118, 0.45), 0 2px 4px rgba(0,0,0,0.6);
+    }
+    input[type="range"].emerald-slider:active::-webkit-slider-thumb {
+      background: #00e676;
+    }
+    /* Hide scrollbar for horizontal stage pill bar */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .led-glow-cyan {
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.35);
+    }
+    .led-glow-amber {
+      box-shadow: 0 0 12px rgba(255, 171, 0, 0.35);
+    }
+    .led-glow-emerald {
+      box-shadow: 0 0 12px rgba(0, 230, 118, 0.35);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-28">
+
+  <!-- Toast Notification Banner (No alert() used) -->
+  <div id="toast-banner" class="fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-2 w-[92%] max-w-md">
+    <div id="toast-content" class="bg-module/95 backdrop-blur-md border border-cyanled/50 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium">
+      <span id="toast-dot" class="w-2.5 h-2.5 rounded-full bg-cyanled shrink-0"></span>
+      <span id="toast-text">Ready</span>
+    </div>
+  </div>
+
+  <!-- Top Hardware Rack Header -->
+  <header class="sticky top-0 z-40 bg-obsidian/95 backdrop-blur-md border-b border-border px-3 py-2.5">
+    <div class="max-w-2xl mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyanled/40 flex items-center justify-center led-glow-cyan">
+          <svg class="w-5 h-5 text-cyanled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M2 12h3l2-6 4 12 4-14 3 10 2-2h2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-sm font-extrabold tracking-tight text-white">POCKET<span class="text-cyanled">MASTER</span></h1>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyanled/15 text-cyanled border border-cyanled/30">64-BIT DSP</span>
+          </div>
+          <p id="track-title" class="text-[11px] text-slate-400 truncate max-w-[160px] sm:max-w-[240px]">Built-in EDM/Vocal Test Loop</p>
+        </div>
+      </div>
+
+      <!-- Load Audio & Synth Demo Buttons -->
+      <div class="flex items-center gap-1.5">
+        <button id="btn-demo-loop" class="px-2.5 py-2 rounded-xl bg-module hover:bg-slate-800 active:scale-95 border border-border text-[11px] font-semibold text-amberled transition flex items-center gap-1" title="Load Built-in Synth/Vocal Demo">
+          <span>⚡</span>
+          <span class="hidden sm:inline">Test Loop</span>
+          <span class="sm:hidden">Demo</span>
+        </button>
+        <label for="audio-file-input" class="cursor-pointer px-3 py-2 rounded-xl bg-cyanled/15 hover:bg-cyanled/25 active:scale-95 border border-cyanled/50 text-xs font-bold text-cyanled transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          <span>Load Track</span>
+        </label>
+        <input id="audio-file-input" type="file" accept="audio/*,.wav,.mp3,.flac,.m4a,.ogg" class="hidden" />
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-3 pt-3 space-y-3">
+
+    <!-- MASTER METERING & SPECTRUM CONSOLE -->
+    <section class="bg-rack border border-border rounded-2xl p-3 shadow-xl space-y-3">
+      <!-- Top Loudness & True Peak Readouts -->
+      <div class="grid grid-cols-3 gap-2">
+        <!-- Short-Term / Momentary LUFS -->
+        <div class="bg-obsidian border border-border rounded-xl p-2.5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Short LUFS</span>
+            <span id="lufs-target-badge" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emeraldled/15 text-emeraldled">TGT -10</span>
+          </div>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="meter-lufs-short" class="font-mono text-xl sm:text-2xl font-bold text-emeraldled tracking-tight">-∞</span>
+            <span class="text-[10px] font-mono text-slate-500">LUFS</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden mt-1.5">
+            <div id="bar-lufs-short" class="h-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-amber-400 w-0 transition-all duration-75"></div>
+          </div>
+        </div>
+
+        <!-- Integrated LUFS -->
+        <div class="bg-obsidian border border-border rounded-xl p-2.5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Integ LUFS</span>
+            <button id="btn-reset-lufs" class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95">RST</button>
+          </div>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="meter-lufs-int" class="font-mono text-xl sm:text-2xl font-bold text-cyanled tracking-tight">-∞</span>
+            <span class="text-[10px] font-mono text-slate-500">LUFS</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden mt-1.5">
+            <div id="bar-lufs-int" class="h-full bg-cyanled w-0 transition-all duration-100"></div>
+          </div>
+        </div>
+
+        <!-- True Peak & Limiter GR -->
+        <div class="bg-obsidian border border-border rounded-xl p-2.5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">True Peak</span>
+            <span id="meter-gr-badge" class="text-[9px] font-mono text-amberled">GR 0.0dB</span>
+          </div>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="meter-true-peak" class="font-mono text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">-∞</span>
+            <span class="text-[10px] font-mono text-slate-500">dBTP</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden mt-1.5">
+            <div id="bar-true-peak" class="h-full bg-emeraldled w-0 transition-all duration-75"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stereo L/R Peak & Live Spectrum Analyzer Canvas -->
+      <div class="grid grid-cols-12 gap-2 items-stretch">
+        <!-- Spectrum Canvas -->
+        <div class="col-span-9 bg-obsidian border border-border rounded-xl overflow-hidden relative h-24">
+          <canvas id="spectrum-canvas" class="w-full h-full block"></canvas>
+          <div class="absolute top-1.5 left-2 text-[9px] font-mono text-slate-500 pointer-events-none">RTA SPECTRUM (20Hz – 20kHz)</div>
+          <div id="bypass-overlay-tag" class="hidden absolute top-1.5 right-2 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amberled/20 text-amberled border border-amberled/40">RAW BYPASS</div>
+        </div>
+        <!-- Stereo L/R + GR Vertical Meters -->
+        <div class="col-span-3 bg-obsidian border border-border rounded-xl p-2 flex flex-col justify-between h-24">
+          <div class="flex justify-between text-[9px] font-mono text-slate-400">
+            <span>L</span>
+            <span>R</span>
+            <span class="text-amberled">GR</span>
+          </div>
+          <div class="flex-1 flex justify-between gap-1.5 my-1">
+            <div class="w-full bg-slate-900 rounded-sm overflow-hidden flex flex-col justify-end">
+              <div id="meter-l-bar" class="w-full bg-gradient-to-t from-emerald-500 via-cyan-400 to-rose-500 h-0 transition-all duration-75"></div>
+            </div>
+            <div class="w-full bg-slate-900 rounded-sm overflow-hidden flex flex-col justify-end">
+              <div id="meter-r-bar" class="w-full bg-gradient-to-t from-emerald-500 via-cyan-400 to-rose-500 h-0 transition-all duration-75"></div>
+            </div>
+            <div class="w-full bg-slate-900 rounded-sm overflow-hidden flex flex-col justify-start">
+              <div id="meter-gr-bar" class="w-full bg-amberled h-0 transition-all duration-75"></div>
+            </div>
+          </div>
+          <div class="text-[8px] font-mono text-center text-slate-500">OUT / LIM</div>
+        </div>
+      </div>
+
+      <!-- Waveform Scrubbing Bar -->
+      <div class="space-y-1">
+        <div id="waveform-container" class="relative w-full h-12 bg-obsidian border border-border rounded-xl overflow-hidden cursor-pointer touch-none">
+          <canvas id="waveform-canvas" class="w-full h-full block"></canvas>
+          <div id="playhead-line" class="absolute top-0 bottom-0 w-0.5 bg-cyanled shadow-[0_0_8px_#00e5ff] pointer-events-none" style="left: 0%;"></div>
+        </div>
+        <div class="flex justify-between text-[10px] font-mono text-slate-400 px-1">
+          <span id="time-current">00:00.0</span>
+          <span id="audio-specs" class="text-slate-500">48kHz Stereo</span>
+          <span id="time-total">00:00.0</span>
+        </div>
+      </div>
+
+      <!-- Transport & A/B Master Bypass Controls -->
+      <div class="grid grid-cols-12 gap-2 pt-0.5">
+        <button id="btn-play-pause" class="col-span-4 py-3 rounded-xl bg-cyanled text-obsidian font-extrabold text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-lg led-glow-cyan">
+          <svg id="icon-play" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="icon-pause" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          <span id="label-play-pause">PLAY</span>
+        </button>
+
+        <button id="btn-loop" class="col-span-2 py-3 rounded-xl bg-module border border-cyanled/50 text-cyanled font-bold text-xs flex items-center justify-center active:scale-95 transition" title="Toggle Loop">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+
+        <button id="btn-ab-bypass" class="col-span-4 py-3 rounded-xl bg-emeraldled/15 border border-emeraldled/60 text-emeraldled font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition led-glow-emerald">
+          <span id="ab-dot" class="w-2 h-2 rounded-full bg-emeraldled animate-pulse"></span>
+          <span id="label-ab-bypass">MASTER ON</span>
+        </button>
+
+        <button id="btn-loudness-match" class="col-span-2 py-3 rounded-xl bg-module border border-border text-slate-400 font-mono font-bold text-[10px] leading-tight flex flex-col items-center justify-center active:scale-95 transition" title="Loudness-Matched A/B Bypass">
+          <span>GAIN</span>
+          <span>MATCH</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- LOUDNESS TARGET PRESET STRIP (-14, -10, -6 EDM) -->
+    <section class="bg-rack border border-border rounded-2xl p-2.5">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Quick Loudness & Genre Targets</span>
+        <span class="text-[10px] font-mono text-slate-400">1-Tap Chain Calibration</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <button data-preset="streaming" class="preset-btn py-2.5 px-2 rounded-xl bg-module border border-border hover:border-cyanled/50 text-left transition active:scale-95">
+          <div class="text-[11px] font-extrabold text-cyanled">-14 LUFS</div>
+          <div class="text-[10px] text-slate-400">Clean Streaming</div>
+        </button>
+        <button data-preset="target10" class="preset-btn py-2.5 px-2 rounded-xl bg-cyanled/15 border border-cyanled text-left transition active:scale-95">
+          <div class="text-[11px] font-extrabold text-white">-10 LUFS ★</div>
+          <div class="text-[10px] text-cyanled">Punchy Pop/Vocal</div>
+        </button>
+        <button data-preset="edm6" class="preset-btn py-2.5 px-2 rounded-xl bg-module border border-border hover:border-amberled/50 text-left transition active:scale-95">
+          <div class="text-[11px] font-extrabold text-amberled">-6 LUFS 🔥</div>
+          <div class="text-[10px] text-slate-400">Modern EDM Club</div>
+        </button>
+      </div>
+    </section>
+
+    <!-- 6-STAGE SIGNAL CHAIN NAVIGATION PILLS -->
+    <section class="space-y-2">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Signal Chain (Optimal Mastering Order)</span>
+        <span class="text-[10px] font-mono text-cyanled">Tap Stage to Edit</span>
+      </div>
+
+      <div id="stage-tabs" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <button data-stage="0" class="stage-tab shrink-0 px-3 py-2 rounded-xl bg-cyanled/20 border border-cyanled text-white text-xs font-bold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emeraldled stage-led" data-led="0"></span>
+          <span>1. De-Esser</span>
+        </button>
+        <button data-stage="1" class="stage-tab shrink-0 px-3 py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emeraldled stage-led" data-led="1"></span>
+          <span>2. Param EQ</span>
+        </button>
+        <button data-stage="2" class="stage-tab shrink-0 px-3 py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emeraldled stage-led" data-led="2"></span>
+          <span>3. Vocal</span>
+        </button>
+        <button data-stage="3" class="stage-tab shrink-0 px-3 py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emeraldled stage-led" data-led="3"></span>
+          <span>4. Saturation</span>
+        </button>
+        <button data-stage="4" class="stage-tab shrink-0 px-3 py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emeraldled stage-led" data-led="4"></span>
+          <span>5. Shimmer Air</span>
+        </button>
+        <button data-stage="5" class="stage-tab shrink-0 px-3 py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emeraldled stage-led" data-led="5"></span>
+          <span>6. Limiter</span>
+        </button>
+      </div>
+
+      <!-- STAGE MODULE PANELS -->
+      <div class="bg-rack border border-border rounded-2xl p-4 shadow-xl">
+
+        <!-- STAGE 1: DE-ESSER -->
+        <div id="panel-stage-0" class="stage-panel space-y-4">
+          <div class="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyanled/15 text-cyanled">STAGE 01</span>
+                <h2 class="text-base font-extrabold text-white">Split-Band De-Esser</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Tames harsh 5kHz–9kHz sibilance before EQ & limiting</p>
+            </div>
+            <button data-toggle="0" class="stage-power-btn px-3.5 py-2 rounded-xl bg-emeraldled/20 border border-emeraldled text-emeraldled text-xs font-extrabold active:scale-95">
+              ACTIVE
+            </button>
+          </div>
+
+          <!-- De-Esser Sibilance Activity Bar -->
+          <div class="bg-obsidian border border-border rounded-xl p-2.5 flex items-center justify-between gap-3">
+            <span class="text-[11px] font-mono text-slate-400 shrink-0">SIBILANCE ATTEN</span>
+            <div class="flex-1 h-2 bg-slate-900 rounded-full overflow-hidden">
+              <div id="deesser-gr-bar" class="h-full bg-cyanled w-0 transition-all duration-75"></div>
+            </div>
+            <span id="deesser-gr-val" class="text-xs font-mono text-cyanled w-14 text-right">0.0 dB</span>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Sibilance Center Frequency</span>
+  <span id="val-deess-freq" class="font-mono text-cyanled font-bold">6800 Hz</span>
+              </div>
+              <input id="ctrl-deess-freq" type="range" min="4500" max="9500" step="50" value="6800" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Detection Threshold</span>
+                <span id="val-deess-thresh" class="font-mono text-cyanled font-bold">-24.0 dB</span>
+              </div>
+              <input id="ctrl-deess-thresh" type="range" min="-45" max="-6" step="0.5" value="-24" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Max Sibilance Reduction</span>
+                <span id="val-deess-red" class="font-mono text-cyanled font-bold">4.5 dB</span>
+              </div>
+              <input id="ctrl-deess-red" type="range" min="0" max="12" step="0.5" value="4.5" class="studio-slider" />
+            </div>
+          </div>
+        </div>
+
+        <!-- STAGE 2: 4-BAND PARAMETRIC EQ -->
+        <div id="panel-stage-1" class="stage-panel hidden space-y-4">
+          <div class="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyanled/15 text-cyanled">STAGE 02</span>
+                <h2 class="text-base font-extrabold text-white">4-Band Parametric EQ</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Sculpt tonal balance with live frequency response curve</p>
+            </div>
+            <button data-toggle="1" class="stage-power-btn px-3.5 py-2 rounded-xl bg-emeraldled/20 border border-emeraldled text-emeraldled text-xs font-extrabold active:scale-95">
+              ACTIVE
+            </button>
+          </div>
+
+          <!-- Interactive EQ Frequency Response Curve Canvas -->
+          <div class="bg-obsidian border border-border rounded-xl overflow-hidden relative h-32">
+            <canvas id="eq-curve-canvas" class="w-full h-full block"></canvas>
+            <div class="absolute bottom-1.5 right-2 text-[9px] font-mono text-slate-500">20Hz — 100Hz — 1kHz — 10kHz — 20kHz</div>
+          </div>
+
+          <!-- Band Selector Pills -->
+          <div class="grid grid-cols-4 gap-1.5">
+            <button data-eq-band="0" class="eq-band-btn py-2 rounded-xl bg-cyanled/20 border border-cyanled text-cyanled text-xs font-bold">Low Shelf</button>
+            <button data-eq-band="1" class="eq-band-btn py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold">Low-Mid</button>
+            <button data-eq-band="2" class="eq-band-btn py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold">High-Mid</button>
+            <button data-eq-band="3" class="eq-band-btn py-2 rounded-xl bg-module border border-border text-slate-300 text-xs font-bold">High Shelf</button>
+          </div>
+
+          <!-- Active Band Controls -->
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Band Frequency</span>
+                <span id="val-eq-freq" class="font-mono text-cyanled font-bold">85 Hz</span>
+              </div>
+              <input id="ctrl-eq-freq" type="range" min="25" max="16000" step="5" value="85" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Band Gain</span>
+                <span id="val-eq-gain" class="font-mono text-cyanled font-bold">+1.5 dB</span>
+              </div>
+              <input id="ctrl-eq-gain" type="range" min="-12" max="12" step="0.25" value="1.5" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Band Q / Slope</span>
+                <span id="val-eq-q" class="font-mono text-cyanled font-bold">0.70 Q</span>
+              </div>
+              <input id="ctrl-eq-q" type="range" min="0.3" max="8.0" step="0.1" value="0.7" class="studio-slider" />
+            </div>
+          </div>
+        </div>
+
+        <!-- STAGE 3: VOCAL PRESENCE & CLARITY -->
+        <div id="panel-stage-2" class="stage-panel hidden space-y-4">
+          <div class="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyanled/15 text-cyanled">STAGE 03</span>
+                <h2 class="text-base font-extrabold text-white">Vocal Presence & Focus</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">1.5kHz–4.5kHz intelligibility boost & parallel vocal-band glue</p>
+            </div>
+            <button data-toggle="2" class="stage-power-btn px-3.5 py-2 rounded-xl bg-emeraldled/20 border border-emeraldled text-emeraldled text-xs font-extrabold active:scale-95">
+              ACTIVE
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Presence Center Frequency</span>
+                <span id="val-vocal-freq" class="font-mono text-cyanled font-bold">2800 Hz</span>
+              </div>
+              <input id="ctrl-vocal-freq" type="range" min="1500" max="4500" step="50" value="2800" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Presence / Clarity Lift</span>
+                <span id="val-vocal-lift" class="font-mono text-cyanled font-bold">+2.0 dB</span>
+              </div>
+              <input id="ctrl-vocal-lift" type="range" min="0" max="8" step="0.25" value="2.0" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Parallel Vocal-Band Focus Compression</span>
+                <span id="val-vocal-comp" class="font-mono text-cyanled font-bold">35%</span>
+              </div>
+              <input id="ctrl-vocal-comp" type="range" min="0" max="100" step="1" value="35" class="studio-slider" />
+            </div>
+          </div>
+        </div>
+
+        <!-- STAGE 4: HARMONIC SATURATION -->
+        <div id="panel-stage-3" class="stage-panel hidden space-y-4">
+          <div class="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-amberled/15 text-amberled">STAGE 04</span>
+                <h2 class="text-base font-extrabold text-white">Analog Tape / Tube Saturation</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">4x oversampled soft-clipping harmonics for perceived loudness</p>
+            </div>
+            <button data-toggle="3" class="stage-power-btn px-3.5 py-2 rounded-xl bg-emeraldled/20 border border-emeraldled text-emeraldled text-xs font-extrabold active:scale-95">
+              ACTIVE
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Harmonic Drive</span>
+                <span id="val-sat-drive" class="font-mono text-amberled font-bold">28%</span>
+              </div>
+              <input id="ctrl-sat-drive" type="range" min="0" max="100" step="1" value="28" class="studio-slider amber-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Warmth / Tone Tilt</span>
+                <span id="val-sat-tone" class="font-mono text-amberled font-bold">+0.5 dB</span>
+              </div>
+              <input id="ctrl-sat-tone" type="range" min="-6" max="6" step="0.25" value="0.5" class="studio-slider amber-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Parallel Dry / Wet Mix</span>
+                <span id="val-sat-mix" class="font-mono text-amberled font-bold">45%</span>
+              </div>
+              <input id="ctrl-sat-mix" type="range" min="0" max="100" step="1" value="45" class="studio-slider amber-slider" />
+            </div>
+          </div>
+        </div>
+
+        <!-- STAGE 5: SHIMMER AIR -->
+        <div id="panel-stage-4" class="stage-panel hidden space-y-4">
+          <div class="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyanled/15 text-cyanled">STAGE 05</span>
+                <h2 class="text-base font-extrabold text-white">Shimmer Air Exciter</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Silky 12kHz–16kHz high-frequency shelf, harmonic air & stereo width</p>
+            </div>
+            <button data-toggle="4" class="stage-power-btn px-3.5 py-2 rounded-xl bg-emeraldled/20 border border-emeraldled text-emeraldled text-xs font-extrabold active:scale-95">
+              ACTIVE
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Air Shelf Frequency</span>
+                <span id="val-air-freq" class="font-mono text-cyanled font-bold">13500 Hz</span>
+              </div>
+              <input id="ctrl-air-freq" type="range" min="10000" max="17500" step="250" value="13500" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Shimmer Air Boost & Harmonic Sheen</span>
+                <span id="val-air-gain" class="font-mono text-cyanled font-bold">+2.5 dB</span>
+              </div>
+              <input id="ctrl-air-gain" type="range" min="0" max="9" step="0.25" value="2.5" class="studio-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">High-Band Stereo Air Width</span>
+                <span id="val-air-width" class="font-mono text-cyanled font-bold">125%</span>
+              </div>
+              <input id="ctrl-air-width" type="range" min="100" max="175" step="1" value="125" class="studio-slider" />
+            </div>
+          </div>
+        </div>
+
+        <!-- STAGE 6: BRICKWALL MASTERING LIMITER -->
+        <div id="panel-stage-5" class="stage-panel hidden space-y-4">
+          <div class="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-emeraldled/15 text-emeraldled">STAGE 06</span>
+                <h2 class="text-base font-extrabold text-white">Brickwall Mastering Limiter</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Lookahead dynamics + True Peak clipper for -10 to -6 LUFS EDM</p>
+            </div>
+            <button data-toggle="5" class="stage-power-btn px-3.5 py-2 rounded-xl bg-emeraldled/20 border border-emeraldled text-emeraldled text-xs font-extrabold active:scale-95">
+              ACTIVE
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Input Push / Loudness Drive</span>
+                <span id="val-lim-gain" class="font-mono text-emeraldled font-bold">+5.5 dB</span>
+              </div>
+              <input id="ctrl-lim-gain" type="range" min="0" max="18" step="0.25" value="5.5" class="studio-slider emerald-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">True Peak Ceiling (dBTP)</span>
+                <span id="val-lim-ceiling" class="font-mono text-emeraldled font-bold">-0.3 dBTP</span>
+              </div>
+              <input id="ctrl-lim-ceiling" type="range" min="-2.0" max="-0.1" step="0.1" value="-0.3" class="studio-slider emerald-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-medium mb-1">
+                <span class="text-slate-300">Limiter Release Speed</span>
+                <span id="val-lim-release" class="font-mono text-emeraldled font-bold">65 ms</span>
+              </div>
+              <input id="ctrl-lim-release" type="range" min="15" max="250" step="5" value="65" class="studio-slider emerald-slider" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+  </section>
+
+    <!-- OFFLINE FAST RENDER & EXPORT SECTION (MP3 320kbps / WAV 24-bit / WAV 16-bit) -->
+    <section class="bg-rack border border-border rounded-2xl p-3.5 shadow-xl space-y-3">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <h3 class="text-sm font-extrabold text-white">Offline Master Export</h3>
+          <p id="export-format-desc" class="text-[11px] text-slate-400">320 kbps CBR Stereo MP3 — fast mobile upload for YouTube & social</p>
+        </div>
+        <span id="export-est-size" class="shrink-0 text-[10px] font-mono px-2 py-1 rounded-lg bg-obsidian border border-border text-cyanled">~0.3 MB</span>
+      </div>
+
+      <!-- 3-Way Format Selector: MP3 320kbps / WAV 24-BIT / WAV 16-BIT -->
+      <div class="grid grid-cols-3 gap-1.5 bg-obsidian border border-border rounded-xl p-1">
+        <button id="btn-fmt-mp3" data-format="mp3-320" class="export-fmt-btn py-2 px-1.5 rounded-lg text-[11px] font-mono font-extrabold bg-cyanled text-obsidian transition flex flex-col items-center leading-tight">
+          <span>MP3 320</span>
+          <span class="text-[9px] opacity-80 font-sans font-semibold">YouTube / Share</span>
+        </button>
+        <button id="btn-fmt-wav24" data-format="wav-24" class="export-fmt-btn py-2 px-1.5 rounded-lg text-[11px] font-mono font-bold text-slate-400 hover:text-slate-200 transition flex flex-col items-center leading-tight">
+          <span>WAV 24-BIT</span>
+          <span class="text-[9px] opacity-75 font-sans font-medium">MakeWaves / Distro</span>
+        </button>
+        <button id="btn-fmt-wav16" data-format="wav-16" class="export-fmt-btn py-2 px-1.5 rounded-lg text-[11px] font-mono font-bold text-slate-400 hover:text-slate-200 transition flex flex-col items-center leading-tight">
+          <span>WAV 16-BIT</span>
+          <span class="text-[9px] opacity-75 font-sans font-medium">CD Lossless</span>
+        </button>
+      </div>
+
+      <button id="btn-export-master" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-obsidian font-extrabold text-sm tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-[0.99] transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        <span id="export-btn-label">RENDER & DOWNLOAD MP3 (320 KBPS)</span>
+      </button>
+
+      <!-- Render Progress / Download Ready Card -->
+      <div id="export-status-box" class="hidden bg-obsidian border border-emeraldled/40 rounded-xl p-3 space-y-2">
+        <div class="flex items-center justify-between text-xs gap-2">
+          <span id="export-status-text" class="font-medium text-emeraldled truncate">Rendering master...</span>
+          <span id="export-stats-text" class="font-mono text-slate-400 shrink-0">0%</span>
+        </div>
+        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+          <div id="export-progress-bar" class="h-full bg-gradient-to-r from-emeraldled to-cyanled w-0 transition-all duration-100"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    /**
+     * POCKETMASTER STUDIO — 100% Native Web Audio API & OfflineAudioContext Mastering Engine
+     * Zero external paid APIs. Runs completely locally in mobile/desktop browsers.
+     */
+    (() => {
+      // ==========================================
+      // 1. STATE & MASTERING PARAMETERS
+      // ==========================================
+      const state = {
+        audioCtx: null,
+        audioBuffer: null,
+        trackName: 'Built-in_EDM_Vocal_Loop',
+        isPlaying: false,
+        isLooping: true,
+        isMasterActive: true,
+        isLoudnessMatched: false,
+        startTime: 0,
+        pauseOffset: 0,
+        activeStageTab: 0,
+        activeEqBand: 0,
+        exportFormat: 'mp3-320', // 'mp3-320' | 'wav-24' | 'wav-16'
+        integratedLufsHistory: [],
+        truePeakMax: -100,
+// ... existing code ... -->
+      // ==========================================
+      // 10. OFFLINE FAST RENDER & ENCODERS (MP3 320kbps + WAV 16/24-BIT)
+      // ==========================================
+      function updateEstimatedExportSize() {
+        const estEl = document.getElementById('export-est-size');
+        if (!estEl || !state.audioBuffer) return;
+        const duration = state.audioBuffer.duration;
+        const sampleRate = state.audioBuffer.sampleRate;
+        const channels = state.audioBuffer.numberOfChannels;
+        let bytes = 0;
+
+        if (state.exportFormat === 'mp3-320') {
+          // 320 kbps = 40,000 bytes/sec
+          bytes = duration * 40000;
+        } else if (state.exportFormat === 'wav-24') {
+          bytes = 44 + duration * sampleRate * channels * 3;
+        } else {
+          bytes = 44 + duration * sampleRate * channels * 2;
+        }
+
+        const mb = bytes / (1024 * 1024);
+        estEl.textContent = mb < 1 ? `~${Math.max(0.1, mb).toFixed(1)} MB` : `~${mb.toFixed(1)} MB`;
+      }
+
+      function encodeWavBuffer(audioBuffer, bitDepth = 24) {
+// ... existing code ... -->
+        return new Blob([buffer], { type: 'audio/wav' });
+      }
+
+      /**
+       * Non-blocking chunked 320 kbps CBR MP3 encoder using lamejs.
+       * Yields to the browser event loop every chunk so mobile UI & progress bar stay smooth.
+       */
+      async function encodeMp3BufferAsync(audioBuffer, kbps = 320, onProgress) {
+        if (typeof lamejs === 'undefined' || !lamejs.Mp3Encoder) {
+          throw new Error('MP3 encoder library (lamejs) is still loading or unavailable.');
+        }
+
+        const numChannels = Math.min(2, audioBuffer.numberOfChannels);
+        const sampleRate = audioBuffer.sampleRate;
+        const totalSamples = audioBuffer.length;
+
+        const leftFloat = audioBuffer.getChannelData(0);
+        const rightFloat = numChannels > 1 ? audioBuffer.getChannelData(1) : leftFloat;
+
+        const mp3Encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, kbps);
+        const mp3Chunks = [];
+        const blockSize = 1152 * 24; // Multiple of MP3 frame size (1152 samples)
+
+        const leftInt16 = new Int16Array(blockSize);
+        const rightInt16 = new Int16Array(blockSize);
+
+        for (let i = 0; i < totalSamples; i += blockSize) {
+          const end = Math.min(i + blockSize, totalSamples);
+          const len = end - i;
+
+          for (let j = 0; j < len; j++) {
+            const sL = Math.max(-1, Math.min(1, leftFloat[i + j]));
+            leftInt16[j] = sL < 0 ? sL * 0x8000 : sL * 0x7FFF;
+
+            if (numChannels > 1) {
+              const sR = Math.max(-1, Math.min(1, rightFloat[i + j]));
+              rightInt16[j] = sR < 0 ? sR * 0x8000 : sR * 0x7FFF;
+            }
+          }
+
+          const subL = len === blockSize ? leftInt16 : leftInt16.subarray(0, len);
+          let mp3buf;
+          if (numChannels === 1) {
+            mp3buf = mp3Encoder.encodeBuffer(subL);
+          } else {
+            const subR = len === blockSize ? rightInt16 : rightInt16.subarray(0, len);
+            mp3buf = mp3Encoder.encodeBuffer(subL, subR);
+          }
+
+          if (mp3buf.length > 0) {
+            mp3Chunks.push(mp3buf);
+          }
+
+          const pct = Math.min(99, Math.round((end / totalSamples) * 100));
+          if (onProgress) onProgress(pct);
+
+          // Yield to UI thread every ~1.5 seconds of audio so mobile Safari/Chrome never freezes
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        const flushBuf = mp3Encoder.flush();
+        if (flushBuf.length > 0) {
+          mp3Chunks.push(flushBuf);
+        }
+
+        if (onProgress) onProgress(100);
+        return new Blob(mp3Chunks, { type: 'audio/mp3' });
+      }
+
+      async function renderOfflineAndDownload() {
+        if (!state.audioBuffer) {
+          showToast('Load an audio track first!', 'amber');
+          return;
+        }
+
+        const statusBox = document.getElementById('export-status-box');
+        const statusText = document.getElementById('export-status-text');
+        const statsText = document.getElementById('export-stats-text');
+        const progressBar = document.getElementById('export-progress-bar');
+        const exportBtn = document.getElementById('btn-export-master');
+
+        statusBox.classList.remove('hidden');
+        statusText.textContent = 'Pass 1/2: Rendering 6-stage master chain...';
+        statsText.textContent = '15%';
+        progressBar.style.width = '15%';
+        exportBtn.disabled = true;
+        exportBtn.classList.add('opacity-70');
+
+        // Allow UI paint before starting OfflineAudioContext render
+        await new Promise(r => setTimeout(r, 50));
+
+        try {
+          const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+          const offlineCtx = new OfflineCtx(
+            state.audioBuffer.numberOfChannels,
+            state.audioBuffer.length,
+            state.audioBuffer.sampleRate
+          );
+
+          const offlineGraph = buildMasteringGraph(offlineCtx, true);
+          // Force master chain ON for export even if user had A/B bypass toggled
+          offlineGraph.masterWetOutGain.gain.value = 1;
+          offlineGraph.bypassPathGain.gain.value = 0;
+
+          const offlineSource = offlineCtx.createBufferSource();
+          offlineSource.buffer = state.audioBuffer;
+          offlineSource.connect(offlineGraph.inputNode);
+          offlineSource.start(0);
+
+          const renderedBuffer = await offlineCtx.startRendering();
+          progressBar.style.width = '40%';
+          statsText.textContent = '40%';
+
+          const cleanName = state.trackName.replace(/\.[^/.]+$/, '');
+          let outputBlob;
+          let fileName;
+
+          if (state.exportFormat === 'mp3-320') {
+            statusText.textContent = 'Pass 2/2: Encoding MP3 320 kbps CBR...';
+            outputBlob = await encodeMp3BufferAsync(renderedBuffer, 320, (encPct) => {
+              const totalPct = 40 + Math.round(encPct * 0.6);
+              progressBar.style.width = `${totalPct}%`;
+              statsText.textContent = `${encPct}%`;
+            });
+            fileName = `${cleanName}_MASTER_320kbps.mp3`;
+          } else {
+            const bitDepth = state.exportFormat === 'wav-24' ? 24 : 16;
+            statusText.textContent = `Pass 2/2: Encoding ${bitDepth}-bit PCM WAV...`;
+            progressBar.style.width = '80%';
+            statsText.textContent = '80%';
+            await new Promise(r => setTimeout(r, 30));
+            outputBlob = encodeWavBuffer(renderedBuffer, bitDepth);
+            fileName = `${cleanName}_MASTER_${bitDepth}bit.wav`;
+          }
+
+          const url = URL.createObjectURL(outputBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          progressBar.style.width = '100%';
+          const mbSize = (outputBlob.size / (1024 * 1024)).toFixed(2);
+          statusText.textContent = `Ready: ${fileName}`;
+          statsText.textContent = `${mbSize} MB`;
+          showToast(`Exported ${fileName} (${mbSize} MB)`, 'emerald');
+
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (err) {
+          console.error(err);
+          statusText.textContent = `Export failed: ${err.message || 'Try WAV format'}`;
+          showToast('Export error occurred', 'amber');
+        } finally {
+          exportBtn.disabled = false;
+          exportBtn.classList.remove('opacity-70');
+        }
+      }
+
+      // ==========================================
+      // 11. PRESETS & UI CONTROL BINDINGS
+      // ==========================================
+      function syncAllSlidersFromState() {
+        // Stage 1: De-Esser
+        document.getElementById('ctrl-deess-freq').value = state.deesser.freq;
+        document.getElementById('val-deess-freq').textContent = `${state.deesser.freq} Hz`;
+        document.getElementById('ctrl-deess-thresh').value = state.deesser.threshold;
+        document.getElementById('val-deess-thresh').textContent = `${state.deesser.threshold.toFixed(1)} dB`;
+        document.getElementById('ctrl-deess-red').value = state.deesser.reduction;
+        document.getElementById('val-deess-red').textContent = `${state.deesser.reduction.toFixed(1)} dB`;
+
+        // Stage 2: EQ active band
+        const b = state.eq[state.activeEqBand];
+        document.getElementById('ctrl-eq-freq').value = b.freq;
+        document.getElementById('val-eq-freq').textContent = b.freq >= 1000 ? `${(b.freq / 1000).toFixed(2)} kHz` : `${b.freq} Hz`;
+        document.getElementById('ctrl-eq-gain').value = b.gain;
+        document.getElementById('val-eq-gain').textContent = `${b.gain >= 0 ? '+' : ''}${b.gain.toFixed(2)} dB`;
+        document.getElementById('ctrl-eq-q').value = b.q;
+        document.getElementById('val-eq-q').textContent = `${b.q.toFixed(2)} Q`;
+
+        // Stage 3: Vocal
+        document.getElementById('ctrl-vocal-freq').value = state.vocal.freq;
+        document.getElementById('val-vocal-freq').textContent = `${state.vocal.freq} Hz`;
+        document.getElementById('ctrl-vocal-lift').value = state.vocal.lift;
+        document.getElementById('val-vocal-lift').textContent = `+${state.vocal.lift.toFixed(2)} dB`;
+        document.getElementById('ctrl-vocal-comp').value = Math.round(state.vocal.compMix * 100);
+        document.getElementById('val-vocal-comp').textContent = `${Math.round(state.vocal.compMix * 100)}%`;
+
+        // Stage 4: Saturation
+        document.getElementById('ctrl-sat-drive').value = Math.round(state.saturation.drive * 100);
+        document.getElementById('val-sat-drive').textContent = `${Math.round(state.saturation.drive * 100)}%`;
+        document.getElementById('ctrl-sat-tone').value = state.saturation.tone;
+        document.getElementById('val-sat-tone').textContent = `${state.saturation.tone >= 0 ? '+' : ''}${state.saturation.tone.toFixed(2)} dB`;
+        document.getElementById('ctrl-sat-mix').value = Math.round(state.saturation.mix * 100);
+        document.getElementById('val-sat-mix').textContent = `${Math.round(state.saturation.mix * 100)}%`;
+
+        // Stage 5: Shimmer Air
+        document.getElementById('ctrl-air-freq').value = state.shimmer.freq;
+        document.getElementById('val-air-freq').textContent = `${state.shimmer.freq} Hz`;
+        document.getElementById('ctrl-air-gain').value = state.shimmer.gain;
+        document.getElementById('val-air-gain').textContent = `+${state.shimmer.gain.toFixed(2)} dB`;
+        document.getElementById('ctrl-air-width').value = Math.round(state.shimmer.width * 100);
+        document.getElementById('val-air-width').textContent = `${Math.round(state.shimmer.width * 100)}%`;
+
+        // Stage 6: Limiter
+        document.getElementById('ctrl-lim-gain').value = state.limiter.inputGainDb;
+        document.getElementById('val-lim-gain').textContent = `+${state.limiter.inputGainDb.toFixed(2)} dB`;
+        document.getElementById('ctrl-lim-ceiling').value = state.limiter.ceilingDb;
+        document.getElementById('val-lim-ceiling').textContent = `${state.limiter.ceilingDb.toFixed(1)} dBTP`;
+        document.getElementById('ctrl-lim-release').value = state.limiter.releaseMs;
+        document.getElementById('val-lim-release').textContent = `${state.limiter.releaseMs} ms`;
+
+        drawEqCurve();
+      }
+
+      function applyPreset(presetKey) {
+        state.integratedLufsHistory = [];
+        state.truePeakMax = -100;
+
+        if (presetKey === 'streaming') {
+          state.deesser = { freq: 6800, threshold: -25, reduction: 4.0 };
+          state.eq = [
+            { type: 'lowshelf', freq: 80, gain: 1.0, q: 0.7 },
+            { type: 'peaking', freq: 300, gain: -1.0, q: 1.4 },
+            { type: 'peaking', freq: 2500, gain: 0.75, q: 1.2 },
+            { type: 'highshelf', freq: 10500, gain: 1.25, q: 0.7 },
+          ];
+          state.vocal = { freq: 2800, lift: 1.5, compMix: 0.25 };
+          state.saturation = { drive: 0.18, tone: 0.25, mix: 0.35 };
+          state.shimmer = { freq: 14000, gain: 2.0, width: 1.18 };
+          state.limiter = { inputGainDb: 2.5, ceilingDb: -1.0, releaseMs: 90 };
+          document.getElementById('lufs-target-badge').textContent = 'TGT -14';
+          showToast('Loaded -14 LUFS Clean Streaming Preset', 'cyan');
+        } else if (presetKey === 'target10') {
+          state.deesser = { freq: 6800, threshold: -24, reduction: 4.5 };
+          state.eq = [
+            { type: 'lowshelf', freq: 85, gain: 1.5, q: 0.7 },
+            { type: 'peaking', freq: 320, gain: -1.5, q: 1.4 },
+            { type: 'peaking', freq: 2400, gain: 1.0, q: 1.2 },
+            { type: 'highshelf', freq: 10000, gain: 1.5, q: 0.7 },
+          ];
+          state.vocal = { freq: 2800, lift: 2.25, compMix: 0.40 };
+          state.saturation = { drive: 0.30, tone: 0.5, mix: 0.48 };
+          state.shimmer = { freq: 13500, gain: 2.75, width: 1.28 };
+          state.limiter = { inputGainDb: 6.0, ceilingDb: -0.3, releaseMs: 60 };
+          document.getElementById('lufs-target-badge').textContent = 'TGT -10';
+          showToast('Loaded -10 LUFS Punchy Vocal/Pop Target', 'cyan');
+        } else if (presetKey === 'edm6') {
+          state.deesser = { freq: 7200, threshold: -22, reduction: 5.5 };
+          state.eq = [
+            { type: 'lowshelf', freq: 65, gain: 2.25, q: 0.8 },
+            { type: 'peaking', freq: 280, gain: -2.25, q: 1.6 },
+            { type: 'peaking', freq: 2600, gain: 1.5, q: 1.2 },
+            { type: 'highshelf', freq: 11000, gain: 2.0, q: 0.7 },
+          ];
+          state.vocal = { freq: 3000, lift: 2.5, compMix: 0.50 };
+          state.saturation = { drive: 0.52, tone: 0.75, mix: 0.65 };
+          state.shimmer = { freq: 13000, gain: 3.5, width: 1.40 };
+          state.limiter = { inputGainDb: 10.5, ceilingDb: -0.1, releaseMs: 32 };
+          document.getElementById('lufs-target-badge').textContent = 'TGT -6 EDM';
+          showToast('Loaded -6 LUFS Modern EDM Club Wall!', 'amber');
+        }
+
+        // Highlight active preset button
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+          const active = btn.dataset.preset === presetKey;
+          btn.classList.toggle('bg-cyanled/15', active);
+          btn.classList.toggle('border-cyanled', active);
+          btn.classList.toggle('bg-module', !active);
+          btn.classList.toggle('border-border', !active);
+        });
+
+        applyStateToGraph(liveGraph);
+        syncAllSlidersFromState();
+    }
+
+      // ==========================================
+      // 12. EVENT LISTENERS SETUP
+      // ==========================================
+      function bindEvents() {
+        // Load Audio File from Phone/Device
+        document.getElementById('audio-file-input').addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          ensureAudioContext();
+          const wasPlaying = state.isPlaying;
+          if (wasPlaying) pausePlayback();
+
+          showToast(`Decoding ${file.name}...`, 'cyan');
+          try {
+            const arrayBuf = await file.arrayBuffer();
+            const decoded = await state.audioCtx.decodeAudioData(arrayBuf);
+            state.audioBuffer = decoded;
+            state.trackName = file.name;
+            state.pauseOffset = 0;
+            state.integratedLufsHistory = [];
+            state.truePeakMax = -100;
+
+            document.getElementById('track-title').textContent = file.name;
+            document.getElementById('time-total').textContent = formatTime(decoded.duration);
+            document.getElementById('time-current').textContent = '00:00.0';
+            document.getElementById('audio-specs').textContent =
+              `${(decoded.sampleRate / 1000).toFixed(1)}kHz • ${decoded.numberOfChannels}ch`;
+
+            drawWaveform();
+            updatePlayheadUI(0);
+            updateEstimatedExportSize();
+            showToast(`Loaded "${file.name}" (${formatTime(decoded.duration)})`, 'emerald');
+            startPlayback();
+          } catch (err) {
+            console.error(err);
+            showToast('Could not decode audio file. Try WAV/MP3/M4A.', 'amber');
+          }
+        });
+
+        // Built-in Demo Loop Button
+        document.getElementById('btn-demo-loop').addEventListener('click', () => {
+          ensureAudioContext();
+          const wasPlaying = state.isPlaying;
+          if (wasPlaying) pausePlayback();
+
+          state.audioBuffer = generateBuiltInDemoBuffer(state.audioCtx);
+          state.trackName = 'Built-in_EDM_Vocal_Loop';
+          state.pauseOffset = 0;
+          state.integratedLufsHistory = [];
+          state.truePeakMax = -100;
+
+          document.getElementById('track-title').textContent = 'Built-in EDM/Vocal Test Loop';
+          document.getElementById('time-total').textContent = formatTime(state.audioBuffer.duration);
+          document.getElementById('audio-specs').textContent = `${(state.audioBuffer.sampleRate / 1000).toFixed(1)}kHz • 2ch`;
+          drawWaveform();
+          updatePlayheadUI(0);
+          updateEstimatedExportSize();
+          showToast('Loaded Built-in EDM/Vocal Test Loop', 'amber');
+          startPlayback();
+        });
+
+        // Play / Pause
+        document.getElementById('btn-play-pause').addEventListener('click', () => {
+          if (state.isPlaying) pausePlayback();
+          else startPlayback();
+        });
+
+        // Loop Toggle
+        document.getElementById('btn-loop').addEventListener('click', (e) => {
+          state.isLooping = !state.isLooping;
+          if (sourceNode) sourceNode.loop = state.isLooping;
+          const btn = e.currentTarget;
+          btn.classList.toggle('border-cyanled/50', state.isLooping);
+          btn.classList.toggle('text-cyanled', state.isLooping);
+          btn.classList.toggle('border-border', !state.isLooping);
+          btn.classList.toggle('text-slate-500', !state.isLooping);
+          showToast(state.isLooping ? 'Loop Enabled' : 'Loop Disabled', 'cyan');
+        });
+
+        // Instant A/B Master Bypass
+        document.getElementById('btn-ab-bypass').addEventListener('click', () => {
+          state.isMasterActive = !state.isMasterActive;
+          state.integratedLufsHistory = [];
+          applyStateToGraph(liveGraph);
+
+          const btn = document.getElementById('btn-ab-bypass');
+          const label = document.getElementById('label-ab-bypass');
+          const dot = document.getElementById('ab-dot');
+          const tag = document.getElementById('bypass-overlay-tag');
+
+          if (state.isMasterActive) {
+            btn.className = 'col-span-4 py-3 rounded-xl bg-emeraldled/15 border border-emeraldled/60 text-emeraldled font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition led-glow-emerald';
+            dot.className = 'w-2 h-2 rounded-full bg-emeraldled animate-pulse';
+            label.textContent = 'MASTER ON';
+            tag.classList.add('hidden');
+          } else {
+            btn.className = 'col-span-4 py-3 rounded-xl bg-amberled/15 border border-amberled/60 text-amberled font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition led-glow-amber';
+            dot.className = 'w-2 h-2 rounded-full bg-amberled';
+            label.textContent = 'BYPASS RAW';
+            tag.classList.remove('hidden');
+          }
+        });
+
+        // Loudness Match Toggle for A/B
+        document.getElementById('btn-loudness-match').addEventListener('click', (e) => {
+          state.isLoudnessMatched = !state.isLoudnessMatched;
+          applyStateToGraph(liveGraph);
+          const btn = e.currentTarget;
+          btn.classList.toggle('border-cyanled', state.isLoudnessMatched);
+          btn.classList.toggle('text-cyanled', state.isLoudnessMatched);
+          btn.classList.toggle('bg-cyanled/15', state.isLoudnessMatched);
+          btn.classList.toggle('border-border', !state.isLoudnessMatched);
+          btn.classList.toggle('text-slate-400', !state.isLoudnessMatched);
+          showToast(state.isLoudnessMatched ? 'A/B Loudness-Match ON' : 'A/B Loudness-Match OFF', 'cyan');
+        });
+
+        // Reset Integrated LUFS
+        document.getElementById('btn-reset-lufs').addEventListener('click', () => {
+          state.integratedLufsHistory = [];
+          state.truePeakMax = -100;
+          showToast('Integrated LUFS Reset', 'cyan');
+        });
+
+        // Waveform Scrubbing (Touch & Mouse)
+        const waveContainer = document.getElementById('waveform-container');
+        const handleScrub = (clientX) => {
+          const rect = waveContainer.getBoundingClientRect();
+          const frac = (clientX - rect.left) / rect.width;
+          seekToFraction(frac);
+        };
+        waveContainer.addEventListener('pointerdown', (e) => {
+          waveContainer.setPointerCapture(e.pointerId);
+          handleScrub(e.clientX);
+        });
+        waveContainer.addEventListener('pointermove', (e) => {
+          if (waveContainer.hasPointerCapture(e.pointerId)) {
+            handleScrub(e.clientX);
+          }
+        });
+
+        // Loudness Presets
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+          btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+        });
+
+        // Stage Tab Switching
+        document.querySelectorAll('.stage-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            const idx = Number(tab.dataset.stage);
+            state.activeStageTab = idx;
+
+            document.querySelectorAll('.stage-tab').forEach((t, i) => {
+              const active = i === idx;
+              t.classList.toggle('bg-cyanled/20', active);
+              t.classList.toggle('border-cyanled', active);
+              t.classList.toggle('text-white', active);
+              t.classList.toggle('bg-module', !active);
+              t.classList.toggle('border-border', !active);
+              t.classList.toggle('text-slate-300', !active);
+            });
+
+            document.querySelectorAll('.stage-panel').forEach((p, i) => {
+              p.classList.toggle('hidden', i !== idx);
+            });
+
+            if (idx === 1) drawEqCurve();
+          });
+        });
+
+        // Stage Individual Active/Bypass Toggles
+        document.querySelectorAll('.stage-power-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = Number(btn.dataset.toggle);
+            state.enabled[idx] = !state.enabled[idx];
+            const on = state.enabled[idx];
+
+            btn.textContent = on ? 'ACTIVE' : 'BYPASSED';
+            btn.className = on
+              ? 'stage-power-btn px-3.5 py-2 rounded-xl bg-emeraldled/20 border border-emeraldled text-emeraldled text-xs font-extrabold active:scale-95'
+              : 'stage-power-btn px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-600 text-slate-400 text-xs font-extrabold active:scale-95';
+
+            const led = document.querySelector(`.stage-led[data-led="${idx}"]`);
+            if (led) {
+              led.classList.toggle('bg-emeraldled', on);
+              led.classList.toggle('bg-slate-600', !on);
+            }
+
+            applyStateToGraph(liveGraph);
+          });
+        });
+
+        // Stage 1: De-Esser Sliders
+        document.getElementById('ctrl-deess-freq').addEventListener('input', (e) => {
+          state.deesser.freq = Number(e.target.value);
+          document.getElementById('val-deess-freq').textContent = `${state.deesser.freq} Hz`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-deess-thresh').addEventListener('input', (e) => {
+          state.deesser.threshold = Number(e.target.value);
+          document.getElementById('val-deess-thresh').textContent = `${state.deesser.threshold.toFixed(1)} dB`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-deess-red').addEventListener('input', (e) => {
+          state.deesser.reduction = Number(e.target.value);
+          document.getElementById('val-deess-red').textContent = `${state.deesser.reduction.toFixed(1)} dB`;
+          applyStateToGraph(liveGraph);
+        });
+
+        // Stage 2: EQ Band Selector & Sliders
+        document.querySelectorAll('.eq-band-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.activeEqBand = Number(btn.dataset.eqBand);
+            document.querySelectorAll('.eq-band-btn').forEach((b, i) => {
+              const active = i === state.activeEqBand;
+              b.classList.toggle('bg-cyanled/20', active);
+              b.classList.toggle('border-cyanled', active);
+              b.classList.toggle('text-cyanled', active);
+              b.classList.toggle('bg-module', !active);
+              b.classList.toggle('border-border', !active);
+              b.classList.toggle('text-slate-300', !active);
+            });
+            syncAllSlidersFromState();
+          });
+        });
+
+        document.getElementById('ctrl-eq-freq').addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          state.eq[state.activeEqBand].freq = val;
+          document.getElementById('val-eq-freq').textContent = val >= 1000 ? `${(val / 1000).toFixed(2)} kHz` : `${val} Hz`;
+          applyStateToGraph(liveGraph);
+          drawEqCurve();
+        });
+        document.getElementById('ctrl-eq-gain').addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          state.eq[state.activeEqBand].gain = val;
+          document.getElementById('val-eq-gain').textContent = `${val >= 0 ? '+' : ''}${val.toFixed(2)} dB`;
+          applyStateToGraph(liveGraph);
+          drawEqCurve();
+        });
+        document.getElementById('ctrl-eq-q').addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          state.eq[state.activeEqBand].q = val;
+          document.getElementById('val-eq-q').textContent = `${val.toFixed(2)} Q`;
+          applyStateToGraph(liveGraph);
+          drawEqCurve();
+        });
+
+        // Stage 3: Vocal Presence Sliders
+        document.getElementById('ctrl-vocal-freq').addEventListener('input', (e) => {
+          state.vocal.freq = Number(e.target.value);
+          document.getElementById('val-vocal-freq').textContent = `${state.vocal.freq} Hz`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-vocal-lift').addEventListener('input', (e) => {
+          state.vocal.lift = Number(e.target.value);
+          document.getElementById('val-vocal-lift').textContent = `+${state.vocal.lift.toFixed(2)} dB`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-vocal-comp').addEventListener('input', (e) => {
+          const pct = Number(e.target.value);
+          state.vocal.compMix = pct / 100;
+          document.getElementById('val-vocal-comp').textContent = `${pct}%`;
+          applyStateToGraph(liveGraph);
+        });
+
+        // Stage 4: Saturation Sliders
+        document.getElementById('ctrl-sat-drive').addEventListener('input', (e) => {
+          const pct = Number(e.target.value);
+          state.saturation.drive = pct / 100;
+          document.getElementById('val-sat-drive').textContent = `${pct}%`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-sat-tone').addEventListener('input', (e) => {
+          state.saturation.tone = Number(e.target.value);
+          document.getElementById('val-sat-tone').textContent = `${state.saturation.tone >= 0 ? '+' : ''}${state.saturation.tone.toFixed(2)} dB`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-sat-mix').addEventListener('input', (e) => {
+          const pct = Number(e.target.value);
+          state.saturation.mix = pct / 100;
+          document.getElementById('val-sat-mix').textContent = `${pct}%`;
+          applyStateToGraph(liveGraph);
+        });
+
+        // Stage 5: Shimmer Air Sliders
+        document.getElementById('ctrl-air-freq').addEventListener('input', (e) => {
+          state.shimmer.freq = Number(e.target.value);
+          document.getElementById('val-air-freq').textContent = `${state.shimmer.freq} Hz`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-air-gain').addEventListener('input', (e) => {
+          state.shimmer.gain = Number(e.target.value);
+          document.getElementById('val-air-gain').textContent = `+${state.shimmer.gain.toFixed(2)} dB`;
+          applyStateToGraph(liveGraph);
+        });
+        document.getElementById('ctrl-air-width').addEventListener('input', (e) => {
+          const pct = Number(e.target.value);
+          state.shimmer.width = pct / 100;
+          document.getElementById('val-air-width').textContent = `${pct}%`;
+        // Export Format Selector (MP3 320kbps / WAV 24-bit / WAV 16-bit)
+        const formatMeta = {
+          'mp3-320': {
+            desc: '320 kbps CBR Stereo MP3 — fast mobile upload for YouTube & social',
+            btnLabel: 'RENDER & DOWNLOAD MP3 (320 KBPS)'
+          },
+          'wav-24': {
+            desc: '24-bit Lossless PCM WAV — studio master for MakeWaves.fm & Spotify',
+            btnLabel: 'RENDER & DOWNLOAD WAV (24-BIT)'
+          },
+          'wav-16': {
+            desc: '16-bit Lossless PCM WAV — standard CD quality uncompressed master',
+            btnLabel: 'RENDER & DOWNLOAD WAV (16-BIT)'
+          }
+        };
+
+        document.querySelectorAll('.export-fmt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const fmt = btn.dataset.format;
+            state.exportFormat = fmt;
+
+            document.querySelectorAll('.export-fmt-btn').forEach(b => {
+              const active = b.dataset.format === fmt;
+              b.className = active
+                ? 'export-fmt-btn py-2 px-1.5 rounded-lg text-[11px] font-mono font-extrabold bg-cyanled text-obsidian transition flex flex-col items-center leading-tight'
+                : 'export-fmt-btn py-2 px-1.5 rounded-lg text-[11px] font-mono font-bold text-slate-400 hover:text-slate-200 transition flex flex-col items-center leading-tight';
+            });
+
+            document.getElementById('export-format-desc').textContent = formatMeta[fmt].desc;
+            document.getElementById('export-btn-label').textContent = formatMeta[fmt].btnLabel;
+            updateEstimatedExportSize();
+          });
+        });
+
+        // Render & Download Master Button
+        document.getElementById('btn-export-master').addEventListener('click', renderOfflineAndDownload);
+
+        // Responsive Canvas Redraw on Resize
+        window.addEventListener('resize', () => {
+          drawWaveform();
+          drawEqCurve();
+        });
+    }
+
+                 // ==========================================
+      // 13. INITIALIZE ON WINDOW LOAD
+      // ==========================================
+      window.addEventListener('load', () => {
+        bindEvents();
+        // Pre-populate built-in demo loop using an OfflineAudioContext so waveform displays immediately without needing user gesture
+        const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        const tempOffline = new OfflineCtx(2, 48000 * 8, 48000);
+        state.audioBuffer = generateBuiltInDemoBuffer(tempOffline);
+        document.getElementById('time-total').textContent = formatTime(state.audioBuffer.duration);
+        document.getElementById('audio-specs').textContent = '48.0kHz • 2ch';
+        drawWaveform();
+        syncAllSlidersFromState();
+        updateEstimatedExportSize();
+      });
+    })();
+  </script>
+</body>
+</html>                                                  
+
+    
